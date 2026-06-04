@@ -1,4 +1,4 @@
-# Taller Hands-On: MLflow + Docker
+# Hands-On: MLflow + Docker
 ## Del dato al modelo desplegado
 
 **Autora:** Carolina Mantilla  
