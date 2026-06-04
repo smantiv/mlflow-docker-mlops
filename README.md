@@ -1,128 +1,121 @@
-# mlflow-tutorial
+# MLflow Docker MLOps Tutorial
+
+Complete example of training a classifier model with scikit-learn and serving it with MLflow using Docker and Docker Compose.
 
 ![img](assets/cartoon-serve-api.png)
 
-I walk through this tutorial and others here on GitHub and on my [Medium blog](https://maria-patterson.medium.com/).  Here is a friend link for open access to the article on Towards Data Science: [*Machine learning model serving for newbies with MLflow*](https://towardsdatascience.com/machine-learning-model-serving-for-newbies-with-mlflow-76f9f0ac3cb2?sk=3fabd570be956c5830591f9ac0fa7991).  I'll always add friend links on my GitHub tutorials for free Medium access if you don't have a paid Medium membership [(referral link)](https://maria-patterson.medium.com/membership).  
+## Overview
 
-*[edit 2024 Sep: I've updated this GitHub repo significantly since publishing my Towards Data Science article in order to upgrade to mlflow 2.16.2 The scripts have been updated, but the Jupyter notebook is now removed as legacy.]*
+This repository walks through an example of:
+- Training a classifier model with scikit-learn
+- Serving the model with MLflow
+- Using MLflow registry for model tracking and versioning
+- Containerizing everything with Docker
 
-If you find any of this useful, I always appreciate contributions to my Saturday morning [fancy coffee fund](https://github.com/sponsors/mtpatter)!
+### Quick Links
+- [Medium Blog](https://maria-patterson.medium.com/) - Walkthrough and tutorials
+- [Towards Data Science Article](https://towardsdatascience.com) - Detailed explanation
+- [Coffee Fund](https://github.com/sponsors/mtpatter) - Support the author
 
-This GitHub repo walks through an example of training a classifier model
-with sklearn and serving the model with mlflow.
-The first section saves the mlflow model locally to disk, and the second
-section shows how to use the mlflow registry for model tracking and versioning.
+**Note:** Updated September 2024 to MLflow 2.16.2
 
-## TLDR
+## Quick Start (TLDR)
 
-To skip through and run all components with Docker Compose you can run
-this whole tutorial with the registry:
-
-```
+### With Registry
+```bash
 docker compose -f docker-compose.yml up --build
 ```
+Access MLflow UI at `http://localhost:8000`
 
-You can access the mlflow registry UI on your localhost at port 8000.
-
-Or to run the tutorial without the registry:
-
-```
+### Without Registry
+```bash
 docker compose -f docker-compose-no-registry.yml up --build
 ```
+Model served on port 1234
 
-with the model served on port 1234.
-
-In either case, you can then make predictions as described in the relevant section below.
-
-To run only mlflow with Docker (without using my sklearn classifier example), port forwarding to localhost:8000,
-you can use a compose file with the command below:
-
-```
+### MLflow Server Only
+```bash
 docker compose -f compose-server.yml up --build
 ```
 
-## Serving models with mlflow (no registry)
+## Serving Models Without Registry
 
-### Train a model
-
-The `clf-train.py` script uses the sklearn breast cancer dataset, trains a
-simple random forest classifier, and saves the model to local disk with mlflow.
-Adding the optional flag for writing output test data will split
-the training data first to add an example test data file.
-
-```
+### Train a Model
+```bash
 python clf-train.py clf-model --outputTestData test.csv
 ```
 
-### Serve model to port 1234
+Trains a Random Forest classifier on the sklearn breast cancer dataset and saves it locally.
 
-Serve your trained `clf-model` to port 1234.
-
-```
+### Serve Model
+```bash
 mlflow models serve -m clf-model -p 1234 -h 0.0.0.0 --env-manager local
 ```
 
-## Serving models with mlflow (with registry)
+## Serving Models With Registry
 
-### Start an mlflow server for UI on port 8000
-
-This uses a sqlite database backend and stores model artifacts
-at the local specified location.
-
-```
+### Start MLflow Server
+```bash
 mlflow server \
---backend-store-uri sqlite:///mlflow.db \
---default-artifact-root ./mlflow-artifact-root \
---host 0.0.0.0 \
---port 8000
+  --backend-store-uri sqlite:///mlflow.db \
+  --default-artifact-root ./mlflow-artifact-root \
+  --host 0.0.0.0 \
+  --port 8000
 ```
 
-### Train a model
+Uses SQLite backend and stores artifacts locally.
 
-The `clf-train-registry.py` script uses the sklearn breast cancer dataset, trains a
-simple random forest classifier, overwrites the model predict method to return
-probabilities instead of classes, and saves and registers the model with mlflow.
-The newest model is moved to the mlflow `Staging` alias.
-Adding the optional flag for writing output test data will split
-the training data first to add an example test data file.
-
-```
+### Train and Register Model
+```bash
 python clf-train-registry.py clf-model "http://localhost:8000" --outputTestData test.csv
 ```
 
-The model is now logged in the mlflow registry and visible in the UI under "my-experiment".
+Trains a Random Forest classifier, modifies the predict method to return probabilities, and registers the model. The newest version is automatically moved to the `Staging` alias.
 
-### Serve model to port 1234
-
-Serve your latest `Staging` version of the trained `clf-model` to port 1234.
-
-```
+### Serve Registered Model
+```bash
 export MLFLOW_TRACKING_URI=http://localhost:8000
 mlflow models serve -m models:/clf-model@Staging -p 1234 -h 0.0.0.0 --env-manager local
 ```
 
-## Make predictions
+## Making Predictions
 
-For inference data in a file called `test.csv`, run the following:
-
+### Via cURL
+```bash
+curl http://localhost:1234/invocations \
+  -H 'Content-Type: text/csv' \
+  --data-binary @test.csv
 ```
-curl http://localhost:1234/invocations  -H 'Content-Type: text/csv' --data-binary @test.csv
-```
 
-or just run the script below:
-
-```
+### Via Script
+```bash
 ./predict.sh test.csv
 ```
 
-This returns an array of predicted probabilities.
+Both return an array of predicted probabilities.
 
-## Cleaning up
+## Cleanup
 
-If you're using Compose, when finished, shut down all containers with the following command:
-
-```
+```bash
 docker compose down
 ```
 
-Note well that the compose files mount volumes and write to the local directory.
+**Note:** Compose files mount volumes and write to the local directory. Clean up manually if needed.
+
+## Project Structure
+
+- `clf-train.py` - Train model without registry
+- `clf-train-registry.py` - Train and register model with MLflow
+- `predict.sh` - Make predictions against served model
+- `docker-compose.yml` - Full stack with registry
+- `docker-compose-no-registry.yml` - Stack without registry
+- `compose-server.yml` - MLflow server only
+- `assets/` - Images and resources
+
+## Technologies
+
+- **MLflow 2.16.2** - Model tracking, registry, and serving
+- **Scikit-learn** - Machine learning classifier
+- **Docker & Compose** - Containerization and orchestration
+- **Python** - Main language
+- **SQLite** - Model registry backend
